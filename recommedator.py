@@ -62,31 +62,39 @@ def confirm_match(matches):
         return matches[int(choice)-1][0]
     
 def get_recommendation(anime_name):
+    conn = sqlite3.connect('anime_list.db')  
+    cursor = conn.cursor()
 
-  conn = sqlite3.connect('anime_list.db')  
-  cursor = conn.cursor()
+    cursor.execute('''
+        SELECT genre_1_id, genre_2_id, genre_3_id 
+        FROM anime 
+        WHERE title = ?
+    ''', (anime_name,))
 
-  cursor.execute('''
-    SELECT genre_1_id, genre_2_id, genre_3_id 
-    FROM anime 
-    WHERE title = ?
-  ''', (anime_name,))
-  
-  genre_ids = cursor.fetchone()  
+    genre_ids = cursor.fetchone()  
 
-  cursor.execute('''
-    SELECT title, normalized_rating
+    cursor.execute('''
+        SELECT title, normalized_rating,
+        CASE 
+            WHEN genre_1_id = ? AND genre_2_id = ? AND genre_3_id = ? THEN 3
+            WHEN genre_2_id = ? AND genre_3_id = ? THEN 2
+            WHEN genre_1_id = ? AND genre_3_id = ? THEN 2
+            WHEN genre_1_id = ? AND genre_2_id = ? THEN 2
+            WHEN genre_3_id = ? THEN 1
+            WHEN genre_2_id = ? THEN 1
+            WHEN genre_1_id = ? THEN 1
+            ELSE 0
+        END as match_score
     FROM anime
-    WHERE genre_1_id = ? OR genre_2_id = ? OR genre_3_id = ?
-    ORDER BY normalized_rating DESC 
+    ORDER BY match_score DESC, normalized_rating DESC 
     LIMIT 5
-  ''', genre_ids)
+''', genre_ids * 4)
 
-  recommendations = cursor.fetchall()
-  
-  conn.close()
-  
-  return recommendations
+    recommendations = cursor.fetchall()
+
+    conn.close()
+
+    return recommendations
 
 def main():
     while True:
